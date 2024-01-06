@@ -7,6 +7,16 @@ def parse_args():
         description='Reads the eth staking deposit data,validates it, checks against already deposited validators, and finally sends a (potentially batched) deposit transaction.',
     )
     p.add_argument(
+        '--combine-deposit-data',
+        help='Look inside a given directory of deposit data and if it has multiple deposit data read all of them',
+        action='store_true',
+    )
+    p.add_argument(
+        '--update-filenames-timestamp',
+        help='If true all filenames under the directory which end in a timestamp will get updated to latest',
+        action='store_true',
+    )
+    p.add_argument(
         '--data-dir',
         help='The directory where the deposit data is',
         type=str,

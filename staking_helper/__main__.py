@@ -2,8 +2,8 @@
 
 contract addy: https://etherscan.io/address/0x0194512e77d798e4871973d9cb9d7ddfc0ffd801
 """
-import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -11,14 +11,21 @@ import requests
 
 from .args import parse_args
 from .onchain import perform_deposit
-from .utils import error
+from .utils import error, ts_now
 
 
-def parse_deposit_data(path, withdrawal_address):
+def parse_deposit_data(path, withdrawal_address, return_data):
     with open(path, 'r') as json_file:
         data = json.load(json_file)
 
-    return_data = {'validators': {}}
+    if return_data == {}:
+        return_data = {
+            'validators': {},
+            'pubkeys': '',
+            'withdrawals': '',
+            'signatures': '',
+            'deposit_data_roots': [],
+        }
     pubkeys_field = ''
     signatures_field = ''
     deposit_data_roots = []
@@ -46,10 +53,10 @@ def parse_deposit_data(path, withdrawal_address):
             'deposit_data_root': deposit_data_root,
         }
 
-    return_data['pubkeys'] = pubkeys_field
+    return_data['pubkeys'] += pubkeys_field
     return_data['withdrawals'] = expected_credentials
-    return_data['signatures'] = signatures_field
-    return_data['deposit_data_roots'] = deposit_data_roots
+    return_data['signatures'] += signatures_field
+    return_data['deposit_data_roots'].extend(deposit_data_roots)
     return return_data
 
 
@@ -81,11 +88,33 @@ def check_keystore(path, return_data):
             error(f'{data["pubkey"]} from keystore file {path} was not found in deposit data')
 
 
-def iterate_files(data_dir, withdrawal_address, should_check_keystores, should_check_beaconchain):
+FILENAME_PARSE_REGEX = re.compile(r'(.*)-(.*?).json')
+
+
+def iterate_files(
+        data_dir,
+        withdrawal_address,
+        should_check_keystores,
+        should_check_beaconchain,
+        should_combine_deposit_data,
+        should_update_filenames_timestamp,
+):
     return_data = {}
+    now = ts_now()
     for path in data_dir.iterdir():
         if path.name.startswith('deposit_data') or path.name.startswith('deposit-data'):
-            return_data = parse_deposit_data(path, withdrawal_address)
+            if return_data != {} and not should_combine_deposit_data:
+                error('Found second deposit data json without request to combine')
+
+            return_data = parse_deposit_data(path, withdrawal_address, return_data)
+
+        elif should_update_filenames_timestamp:
+            match = FILENAME_PARSE_REGEX.match(path.name)
+            new_path = Path(path.parent, f'{match.group(1)}-{now}.json')
+            if new_path.exists():
+                error(f'Can not rename {path} to {new_path} as it already exists')
+            path.rename(new_path)
+            print(f'Renamed {path} to {new_path}')
 
     if not return_data:
         error('Did not find deposit data in the directory')
@@ -114,11 +143,15 @@ def main():
         withdrawal_address=args.withdrawal_address,
         should_check_keystores=args.check_keystores,
         should_check_beaconchain=args.check_beaconchain,
+        should_combine_deposit_data=args.combine_deposit_data,
+        should_update_filenames_timestamp=args.update_filenames_timestamp,
     )
     print(f'pubkeys: {data["pubkeys"]}')
     print(f'withdrawal_credentials: {data["withdrawals"]}')
     print(f'signatures: {data["signatures"]}')
     print(f'deposit_data_roots: {data["deposit_data_roots"]}')
+
+    print(f'\nCalculated {len(data["deposit_data_roots"])} deposits\n')
 
     if args.execute_transaction or args.only_estimate_gas:
         perform_deposit(
