@@ -57,8 +57,8 @@ def stakefish_deposit(
         'from': from_address,
         'value': value,
         'gas': estimated_gas + EXTRA_GAS,
-        'maxFeePerGas': web3.toWei(max_fee, 'gwei'),
-        'maxPriorityFeePerGas': web3.toWei(max_priority_fee, 'gwei'),
+        'maxFeePerGas': web3.to_wei(max_fee, 'gwei'),
+        'maxPriorityFeePerGas': web3.to_wei(max_priority_fee, 'gwei'),
     })
 
 
@@ -103,8 +103,8 @@ def direct_deposit(
         'from': from_address,
         'value': value,
         'gas': estimated_gas + EXTRA_GAS,
-        'maxFeePerGas': web3.toWei(max_fee, 'gwei'),
-        'maxPriorityFeePerGas': web3.toWei(max_priority_fee, 'gwei'),
+        'maxFeePerGas': web3.to_wei(max_fee, 'gwei'),
+        'maxPriorityFeePerGas': web3.to_wei(max_priority_fee, 'gwei'),
     })
 
 
@@ -125,7 +125,7 @@ def perform_deposit(
     )
     web3 = Web3(provider)
     deposit_length = len(deposit_data_roots)
-    value = web3.toWei(deposit_length * 32, 'ether')
+    value = web3.to_wei(deposit_length * 32, 'ether')
     if deposit_length == 1:
         direct_deposit(
             web3=web3,
